@@ -16,9 +16,18 @@ import java.util.concurrent.Executors;
 import android.os.Handler;
 import android.os.Looper;
 
+import org.json.JSONArray;
+import org.json.JSONObject;
+import android.widget.TextView;
+import android.view.View;
+import androidx.core.content.ContextCompat;
+import android.util.Log;
+
 public class MainActivity extends AppCompatActivity {
 
     private WebView mapWebView;
+    private View statusDot;
+    private TextView statusText;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private final Handler handler = new Handler(Looper.getMainLooper());
 
@@ -28,6 +37,8 @@ public class MainActivity extends AppCompatActivity {
         setContentView(R.layout.activity_main);
 
         mapWebView = findViewById(R.id.mapWebView);
+        statusDot = findViewById(R.id.statusDot);
+        statusText = findViewById(R.id.statusText);
         
         WebSettings webSettings = mapWebView.getSettings();
         webSettings.setJavaScriptEnabled(true);
@@ -39,7 +50,6 @@ public class MainActivity extends AppCompatActivity {
         mapWebView.setWebViewClient(new WebViewClient() {
             @Override
             public void onPageFinished(WebView view, String url) {
-                // Cuando el mapa termina de cargar la base, pedir los datos al servidor
                 fetchHeatmapData();
             }
         });
@@ -50,11 +60,11 @@ public class MainActivity extends AppCompatActivity {
     private void fetchHeatmapData() {
         executor.execute(() -> {
             try {
-                // URL mágica (127.0.0.1). El túnel USB redirigirá esto directamente a la PC.
-                URL url = new URL("http://127.0.0.1:8000/api/v1/heatmap");
+                // URL usando la IP local de tu computadora en la red Wi-Fi (192.168.18.60)
+                URL url = new URL("http://192.168.18.60:8000/api/v1/heatmap");
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
-                connection.setConnectTimeout(60000); // 60 segundos max para darle tiempo a BestTime
+                connection.setConnectTimeout(60000); 
                 connection.setReadTimeout(60000);
                 
                 BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream()));
@@ -68,9 +78,39 @@ public class MainActivity extends AppCompatActivity {
                 
                 final String jsonResponse = response.toString();
                 
-                // Enviar los datos al WebView en el hilo principal
+                // Procesar el JSON para calcular el promedio de la zona
+                JSONArray jsonArray = new JSONArray(jsonResponse);
+                double totalIntensity = 0;
+                int validPoints = 0;
+                
+                for (int i = 0; i < jsonArray.length(); i++) {
+                    JSONObject point = jsonArray.getJSONObject(i);
+                    double intensity = point.getDouble("intensity");
+                    if (intensity < 9.9) { // Ignorar el código 999
+                        totalIntensity += intensity;
+                        validPoints++;
+                    }
+                }
+                
+                double average = validPoints > 0 ? (totalIntensity / validPoints) : 0.0;
+                
                 handler.post(() -> {
-                    // Escapar comillas para JS
+                    // Actualizar Semáforo Nativo
+                    if (average >= 0.7) {
+                        statusText.setText("CRITICAL FLOW");
+                        statusText.setTextColor(ContextCompat.getColor(this, R.color.status_critical));
+                        statusDot.setBackgroundResource(R.drawable.dot_critical);
+                    } else if (average >= 0.4) {
+                        statusText.setText("MODERATE FLOW");
+                        statusText.setTextColor(ContextCompat.getColor(this, R.color.status_moderate));
+                        statusDot.setBackgroundResource(R.drawable.dot_moderate);
+                    } else {
+                        statusText.setText("OPTIMAL FLOW");
+                        statusText.setTextColor(ContextCompat.getColor(this, R.color.status_optimal));
+                        statusDot.setBackgroundResource(R.drawable.dot_optimal);
+                    }
+                    
+                    // Actualizar el mapa
                     String jsCommand = "javascript:loadDynamicHeatmap('" + jsonResponse.replace("'", "\\'") + "');";
                     mapWebView.evaluateJavascript(jsCommand, null);
                 });
@@ -78,7 +118,6 @@ public class MainActivity extends AppCompatActivity {
             } catch (Exception e) {
                 e.printStackTrace();
                 final String errorMsg = e.getMessage() != null ? e.getMessage().replace("'", "\\'") : "Error desconocido";
-                // Si falla, mostrar el OFFLINE MODE con el error en la etiqueta
                 handler.post(() -> mapWebView.evaluateJavascript("javascript:showOfflineMode('" + errorMsg + "');", null));
             }
         });
