@@ -21,6 +21,7 @@ import org.json.JSONObject;
 import android.widget.TextView;
 import android.view.View;
 import androidx.core.content.ContextCompat;
+import android.content.Intent;
 import android.util.Log;
 
 public class MainActivity extends AppCompatActivity {
@@ -55,13 +56,23 @@ public class MainActivity extends AppCompatActivity {
         });
         
         mapWebView.loadUrl("file:///android_asset/map.html");
+
+        // Configurar navegación al Planificador (SCRUM-37) - Panel Central
+        findViewById(R.id.pulsePanel).setOnClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, PlannerActivity.class));
+        });
+
+        // Configurar navegación al Planificador (SCRUM-37) - Botón Menú
+        findViewById(R.id.btnPlanner).setOnClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, PlannerActivity.class));
+        });
     }
 
     private void fetchHeatmapData() {
         executor.execute(() -> {
             try {
-                // URL usando la IP local de tu computadora en la red Wi-Fi (192.168.18.60)
-                URL url = new URL("http://192.168.18.60:8000/api/v1/heatmap");
+                // Para emulador usa 10.0.2.2, para celular físico usa la IP de tu PC (ej. 192.168.x.x)
+                URL url = new URL("http://192.168.110.40:8000/api/v1/heatmap");
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(60000); 
