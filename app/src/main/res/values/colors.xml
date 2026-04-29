@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Base -->
+    <color name="black">#FF000000</color>
+    <color name="white">#FFFFFFFF</color>
+    
+    <!-- Fondo y Superficies -->
+    <color name="bg_main">#0a0e17</color>
+    <color name="surface_primary">#151b2b</color>
+    <color name="surface_secondary">#1e2638</color>
+    <color name="border_light">#0DFFFFFF</color> <!-- rgba(255,255,255,0.05) -->
+
+    <!-- Acento y Estados -->
+    <color name="accent_cyan">#00d1ff</color>
+    <color name="status_critical">#ff3b3b</color>
+    <color name="status_moderate">#ffb800</color>
+    <color name="status_optimal">#00e676</color>
+    
+    <!-- Textos -->
+    <color name="text_primary">#ffffff</color>
+    <color name="text_secondary">#8b95a5</color>
+    <color name="text_muted">#5e687b</color>
+    
+    <!-- Elementos Semáforo Desactivado -->
+    <color name="status_critical_dim">#33ff3b3b</color>
+    <color name="status_moderate_dim">#33ffb800</color>
+    <color name="status_optimal_dim">#3300e676</color>
+</resources>
