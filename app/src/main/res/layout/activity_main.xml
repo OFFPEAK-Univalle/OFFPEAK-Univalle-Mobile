@@ -192,10 +192,19 @@
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="LIVE MAP" android:textColor="@color/accent_cyan" android:textSize="9sp" android:textStyle="bold" android:layout_marginTop="2dp" />
         </LinearLayout>
         
-        <!-- Zones -->
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⊞" android:textSize="18sp" android:textColor="@color/text_muted" />
-            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ZONES" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold" android:layout_marginTop="2dp" />
+        <!-- Planner (SCRUM-37) -->
+        <LinearLayout
+            android:id="@+id/btnPlanner"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground">
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="📅" android:textSize="18sp" />
+            <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="PLANNER" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold" android:layout_marginTop="2dp" />
         </LinearLayout>
 
         <!-- Alerts -->
