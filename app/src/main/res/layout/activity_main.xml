@@ -111,6 +111,7 @@
                 
                 <!-- Status Pill (El "Semáforo") -->
                 <LinearLayout
+                    android:id="@+id/statusPill"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:orientation="horizontal"
@@ -122,12 +123,14 @@
                     android:gravity="center_vertical">
                     
                     <View
+                        android:id="@+id/statusDot"
                         android:layout_width="8dp"
                         android:layout_height="8dp"
                         android:background="@drawable/dot_optimal"
                         android:layout_marginEnd="6dp" />
                         
                     <TextView
+                        android:id="@+id/statusText"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="MODERATE FLOW"
