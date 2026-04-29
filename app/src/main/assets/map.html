@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>Leaflet Map</title>
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+    <style>
+        body { padding: 0; margin: 0; background-color: #0a0e17; }
+        html, body, #map { height: 100vh; width: 100vw; }
+        
+        /* Custom Glowing Markers for the Heatmap Effect */
+        .glow-marker {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .pulse-bubble {
+            border-radius: 50px;
+            padding: 4px 8px;
+            color: white;
+            font-weight: bold;
+            font-size: 14px;
+            text-align: center;
+            font-family: 'Inter', sans-serif;
+            position: relative;
+            z-index: 10;
+        }
+        
+        .glow-ring {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            border-radius: 50%;
+            z-index: 1;
+            filter: blur(15px);
+        }
+
+        .label-text {
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+            font-family: 'Inter', sans-serif;
+            text-transform: uppercase;
+            text-align: center;
+            margin-top: 5px;
+            text-shadow: 0 1px 2px black;
+        }
+    </style>
+</head>
+<body>
+    <div id="map"></div>
+
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        // Init Map centered on Cali
+        var map = L.map('map', {
+            zoomControl: false,
+            attributionControl: false
+        }).setView([3.42158, -76.5205], 13);
+
+        // Dark Matter tiles by CartoDB (perfect for the design)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+            subdomains: 'abcd',
+            maxZoom: 20
+        }).addTo(map);
+
+        // Custom function to create glowing pulse markers
+        function createPulseMarker(lat, lng, percentage, name, colorMain, colorGlow) {
+            var iconHtml = `
+                <div class="glow-marker" style="position:relative;">
+                    <div class="glow-ring" style="width: 80px; height: 80px; background-color: ${colorGlow};"></div>
+                    <div style="display:flex; flex-direction:column; align-items:center; z-index:2; position:relative;">
+                        <div class="pulse-bubble" style="border: 2px solid ${colorMain}; background-color: rgba(21, 27, 43, 0.8);">
+                            ${percentage}%
+                        </div>
+                        <div class="label-text">${name}</div>
+                    </div>
+                </div>
+            `;
+            
+            var customIcon = L.divIcon({
+                className: '',
+                html: iconHtml,
+                iconSize: [100, 100],
+                iconAnchor: [50, 50]
+            });
+            
+            L.marker([lat, lng], {icon: customIcon}).addTo(map);
+        }
+
+        // Función global que será llamada desde Android (Java)
+        function loadDynamicHeatmap(jsonDataString) {
+            try {
+                const data = JSON.parse(jsonDataString);
+                
+                // Limpiar mapa si es necesario
+                // map.eachLayer((layer) => { if (layer instanceof L.Marker) layer.remove(); });
+                
+                data.forEach(point => {
+                    let colorMain = '#00e676';
+                    let colorGlow = 'rgba(0, 230, 118, 0.4)';
+                    
+                    if (point.intensity >= 0.7) {
+                        colorMain = '#ff3b3b';
+                        colorGlow = 'rgba(255, 59, 59, 0.4)';
+                    } else if (point.intensity >= 0.4) {
+                        colorMain = '#ffb800';
+                        colorGlow = 'rgba(255, 184, 0, 0.4)';
+                    }
+                    
+                    let percentage = Math.round(point.intensity * 100);
+                    createPulseMarker(point.lat, point.lng, percentage, point.name, colorMain, colorGlow);
+                });
+            } catch (error) {
+                console.error("Error al pintar los datos desde Java:", error);
+            }
+        }
+        
+        // Para probar temporalmente si la función se carga bien o falla
+        function showOfflineMode(errorMsg) {
+             let msg = errorMsg ? "ERR: " + errorMsg.substring(0, 20) : "OFFLINE MODE";
+             createPulseMarker(3.4516, -76.5320, 88, msg, '#ff3b3b', 'rgba(255, 59, 59, 0.4)');
+        }
+    </script>
+</body>
+</html>
