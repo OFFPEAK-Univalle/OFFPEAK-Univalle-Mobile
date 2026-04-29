@@ -22,6 +22,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".PlannerActivity"
+            android:label="Visit Planner"
+            android:theme="@style/Theme.OFFPEAK" />
     </application>
 
 </manifest>
