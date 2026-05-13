@@ -23,6 +23,16 @@ import android.view.View;
 import androidx.core.content.ContextCompat;
 import android.content.Intent;
 import android.util.Log;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.os.Build;
+import androidx.activity.result.ActivityResultLauncher;
+import androidx.activity.result.contract.ActivityResultContracts;
+import android.Manifest;
+import android.content.pm.PackageManager;
+import android.widget.Toast;
+import com.google.firebase.messaging.FirebaseMessaging;
+
 
 public class MainActivity extends AppCompatActivity {
 
@@ -66,13 +76,60 @@ public class MainActivity extends AppCompatActivity {
         findViewById(R.id.btnPlanner).setOnClickListener(v -> {
             startActivity(new Intent(MainActivity.this, PlannerActivity.class));
         });
+
+        // Configurar Notificaciones Push (SCRUM-42)
+        createNotificationChannel();
+        askNotificationPermission();
+        
+        // Obtener Token de FCM para depuración
+        FirebaseMessaging.getInstance().getToken()
+            .addOnCompleteListener(task -> {
+                if (!task.isSuccessful()) {
+                    Log.w("MainActivity", "Error al obtener token FCM", task.getException());
+                    return;
+                }
+                String token = task.getResult();
+                Log.d("MainActivity", "FCM Token: " + token);
+            });
     }
+
+    private void createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            String name = "Incidentes Críticos";
+            String description = "Notificaciones sobre cierres de vías y emergencias";
+            int importance = NotificationManager.IMPORTANCE_HIGH;
+            NotificationChannel channel = new NotificationChannel(MyFirebaseMessagingService.CHANNEL_ID, name, importance);
+            channel.setDescription(description);
+            NotificationManager notificationManager = getSystemService(NotificationManager.class);
+            notificationManager.createNotificationChannel(channel);
+        }
+    }
+
+    private final ActivityResultLauncher<String> requestPermissionLauncher =
+            registerForActivityResult(new ActivityResultContracts.RequestPermission(), isGranted -> {
+                if (isGranted) {
+                    Toast.makeText(this, "Notificaciones activadas", Toast.LENGTH_SHORT).show();
+                } else {
+                    Toast.makeText(this, "No recibirás alertas críticas", Toast.LENGTH_LONG).show();
+                }
+            });
+
+    private void askNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) !=
+                    PackageManager.PERMISSION_GRANTED) {
+                requestPermissionLauncher.launch(Manifest.permission.POST_NOTIFICATIONS);
+            }
+        }
+    }
+
 
     private void fetchHeatmapData() {
         executor.execute(() -> {
             try {
-                // Para emulador usa 10.0.2.2, para celular físico usa la IP de tu PC (ej. 192.168.x.x)
-                URL url = new URL("http://192.168.110.40:8000/api/v1/heatmap");
+                // Conexión al backend en Render (URL centralizada en strings.xml)
+                String urlString = getString(R.string.api_heatmap_url);
+                URL url = new URL(urlString);
                 HttpURLConnection connection = (HttpURLConnection) url.openConnection();
                 connection.setRequestMethod("GET");
                 connection.setConnectTimeout(60000); 
