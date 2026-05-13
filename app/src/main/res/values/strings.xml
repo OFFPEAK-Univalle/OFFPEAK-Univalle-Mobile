@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">OFFPEAK</string>
+    <string name="api_heatmap_url">https://offpeak.onrender.com/api/v1/heatmap</string>
 </resources>
