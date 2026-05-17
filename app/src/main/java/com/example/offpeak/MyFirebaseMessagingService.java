@@ -8,10 +8,14 @@ import android.content.Intent;
 import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
+import android.content.SharedPreferences;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
 import androidx.core.app.NotificationCompat;
+
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import com.google.firebase.messaging.FirebaseMessagingService;
 import com.google.firebase.messaging.RemoteMessage;
@@ -34,6 +38,7 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             String title = remoteMessage.getNotification().getTitle();
             String body = remoteMessage.getNotification().getBody();
             Log.d(TAG, "Cuerpo de notificación: " + body);
+            saveNotificationToPreferences(title, body);
             sendNotification(title, body);
         }
 
@@ -45,8 +50,10 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
             if (remoteMessage.getNotification() == null) {
                 String title = remoteMessage.getData().get("title");
                 String body = remoteMessage.getData().get("body");
-                sendNotification(title != null ? title : "Alerta OFFPEAK", 
-                               body != null ? body : "Nuevo incidente detectado");
+                String finalTitle = title != null ? title : "Alerta OFFPEAK";
+                String finalBody = body != null ? body : "Nuevo incidente detectado";
+                saveNotificationToPreferences(finalTitle, finalBody);
+                sendNotification(finalTitle, finalBody);
             }
         }
     }
@@ -93,5 +100,24 @@ public class MyFirebaseMessagingService extends FirebaseMessagingService {
         }
 
         notificationManager.notify(0, notificationBuilder.build());
+    }
+
+    private void saveNotificationToPreferences(String title, String body) {
+        try {
+            SharedPreferences prefs = getSharedPreferences("offpeak_alerts", Context.MODE_PRIVATE);
+            String existingAlerts = prefs.getString("alerts_list", "[]");
+            JSONArray alertsArray = new JSONArray(existingAlerts);
+            
+            JSONObject newAlert = new JSONObject();
+            newAlert.put("title", title);
+            newAlert.put("body", body);
+            newAlert.put("timestamp", System.currentTimeMillis());
+            
+            alertsArray.put(newAlert);
+            
+            prefs.edit().putString("alerts_list", alertsArray.toString()).apply();
+        } catch (Exception e) {
+            Log.e(TAG, "Error saving notification", e);
+        }
     }
 }
