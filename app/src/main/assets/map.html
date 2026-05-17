@@ -69,10 +69,11 @@
             maxZoom: 20
         }).addTo(map);
 
-        // Custom function to create glowing pulse markers
         function createPulseMarker(lat, lng, percentage, name, colorMain, colorGlow) {
+            // Escape any quotes in name just in case
+            var safeName = name.replace(/'/g, "\\'");
             var iconHtml = `
-                <div class="glow-marker" style="position:relative;">
+                <div class="glow-marker" style="position:relative; cursor:pointer;" onclick="if(window.Android){window.Android.onMarkerClick(${lat}, ${lng}, '${safeName}');}">
                     <div class="glow-ring" style="width: 80px; height: 80px; background-color: ${colorGlow};"></div>
                     <div style="display:flex; flex-direction:column; align-items:center; z-index:2; position:relative;">
                         <div class="pulse-bubble" style="border: 2px solid ${colorMain}; background-color: rgba(21, 27, 43, 0.8);">
@@ -90,7 +91,53 @@
                 iconAnchor: [50, 50]
             });
             
-            L.marker([lat, lng], {icon: customIcon}).addTo(map);
+            var marker = L.marker([lat, lng], {icon: customIcon}).addTo(map);
+            marker.on('click', function() {
+                if (window.Android) {
+                    window.Android.onMarkerClick(lat, lng, name);
+                } else {
+                    console.log("Marker clicked:", name, lat, lng);
+                }
+            });
+        }
+
+        var currentRouteLayer = null;
+
+        function drawRoute(geoJsonString) {
+            try {
+                if (currentRouteLayer) {
+                    map.removeLayer(currentRouteLayer);
+                }
+                const geoJson = JSON.parse(geoJsonString);
+                currentRouteLayer = L.geoJSON(geoJson, {
+                    style: {
+                        color: "#00e676", 
+                        weight: 6, 
+                        opacity: 0.8,
+                        lineCap: 'round',
+                        lineJoin: 'round'
+                    }
+                }).addTo(map);
+                map.fitBounds(currentRouteLayer.getBounds(), {padding: [50, 50]});
+            } catch (error) {
+                console.error("Error drawing route:", error);
+            }
+        }
+
+        var userMarker = null;
+        function setUserLocation(lat, lng) {
+            if (userMarker) {
+                userMarker.setLatLng([lat, lng]);
+            } else {
+                var userIcon = L.divIcon({
+                    className: '',
+                    html: `<div style="width: 18px; height: 18px; background-color: #00bcd4; border: 3px solid white; border-radius: 50%; box-shadow: 0 0 10px rgba(0, 188, 212, 0.8);"></div>`,
+                    iconSize: [18, 18],
+                    iconAnchor: [9, 9]
+                });
+                userMarker = L.marker([lat, lng], {icon: userIcon, zIndexOffset: 1000}).addTo(map);
+            }
+            map.setView([lat, lng], 13);
         }
 
         // Función global que será llamada desde Android (Java)
