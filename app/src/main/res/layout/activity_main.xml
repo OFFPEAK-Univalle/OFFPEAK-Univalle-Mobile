@@ -59,6 +59,101 @@
         </LinearLayout>
     </androidx.cardview.widget.CardView>
 
+    <!-- Route Details Card (Hidden by default) -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/routeDetailsCard"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_margin="16dp"
+        android:visibility="gone"
+        app:cardBackgroundColor="@color/surface_primary"
+        app:cardCornerRadius="16dp"
+        app:cardElevation="8dp"
+        app:layout_constraintTop_toBottomOf="@id/searchCard"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+        
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+            
+            <TextView
+                android:id="@+id/routeTitle"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Ruta hacia Centro Comercial"
+                android:textColor="@color/text_primary"
+                android:textSize="16sp"
+                android:textStyle="bold" />
+                
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="12dp"
+                android:weightSum="3">
+                
+                <!-- Tiempo -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⏱️" android:textSize="20sp" />
+                    <TextView android:id="@+id/routeTime" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="15 min" android:textColor="@color/accent_cyan" android:textStyle="bold" android:textSize="14sp" android:layout_marginTop="4dp"/>
+                </LinearLayout>
+                
+                <!-- Clima -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🌦️" android:textSize="20sp" />
+                    <TextView android:id="@+id/routeWeather" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Lluvia" android:textColor="@color/text_secondary" android:textSize="12sp" android:layout_marginTop="4dp"/>
+                </LinearLayout>
+                
+                <!-- Alertas -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="vertical"
+                    android:gravity="center">
+                    <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🚧" android:textSize="20sp" />
+                    <TextView android:id="@+id/routeIncidents" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Tráfico" android:textColor="@color/text_secondary" android:textSize="12sp" android:layout_marginTop="4dp"/>
+                </LinearLayout>
+            </LinearLayout>
+            
+            <!-- Razón Heurística -->
+            <TextView
+                android:id="@+id/routeReason"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="16dp"
+                android:text="Afluencia BAJO, 15 min de viaje."
+                android:textColor="@color/text_muted"
+                android:textSize="12sp"
+                android:background="@color/bg_main"
+                android:padding="8dp"
+                android:gravity="center"
+                android:textStyle="italic" />
+                
+            <Button
+                android:id="@+id/btnCloseRoute"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:backgroundTint="@color/surface_secondary"
+                android:textColor="@color/text_primary"
+                android:text="Cerrar Ruta" />
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
     <!-- Panel Inferior (Current Pulse) -->
     <androidx.cardview.widget.CardView
         android:id="@+id/pulsePanel"
@@ -208,7 +303,16 @@
         </LinearLayout>
 
         <!-- Alerts -->
-        <LinearLayout android:layout_width="0dp" android:layout_height="match_parent" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+        <LinearLayout
+            android:id="@+id/btnAlerts"
+            android:layout_width="0dp"
+            android:layout_height="match_parent"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:clickable="true"
+            android:focusable="true"
+            android:background="?attr/selectableItemBackground">
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="🔔" android:textSize="18sp" android:textColor="@color/text_muted" />
             <TextView android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="ALERTS" android:textColor="@color/text_muted" android:textSize="9sp" android:textStyle="bold" android:layout_marginTop="2dp" />
         </LinearLayout>
