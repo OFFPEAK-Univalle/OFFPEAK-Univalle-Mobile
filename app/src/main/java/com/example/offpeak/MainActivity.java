@@ -37,6 +37,9 @@ import android.location.Location;
 import android.location.LocationListener;
 import android.location.LocationManager;
 import androidx.annotation.NonNull;
+import android.media.RingtoneManager;
+import android.net.Uri;
+import androidx.core.app.NotificationCompat;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -101,6 +104,22 @@ public class MainActivity extends AppCompatActivity {
         createNotificationChannel();
         askNotificationPermission();
         
+        // Suscribirse al tema de incidentes críticos
+        FirebaseMessaging.getInstance().subscribeToTopic("critical_incidents")
+            .addOnCompleteListener(task -> {
+                if (task.isSuccessful()) {
+                    Log.d("MainActivity", "Suscrito al tema: critical_incidents");
+                } else {
+                    Log.e("MainActivity", "Fallo al suscribirse al tema", task.getException());
+                }
+            });
+        
+        // También suscribirse a "alerts" por si acaso
+        FirebaseMessaging.getInstance().subscribeToTopic("alerts");
+
+        // Manejar datos de notificación si la app se abrió desde una notificación en segundo plano
+        handleNotificationIntent(getIntent());
+        
         // Obtener Token de FCM para depuración
         FirebaseMessaging.getInstance().getToken()
             .addOnCompleteListener(task -> {
@@ -111,6 +130,46 @@ public class MainActivity extends AppCompatActivity {
                 String token = task.getResult();
                 Log.d("MainActivity", "FCM Token: " + token);
             });
+
+        startAlertsPolling();
+    }
+
+    private void handleNotificationIntent(Intent intent) {
+        if (intent != null && intent.getExtras() != null) {
+            String title = intent.getStringExtra("title");
+            String body = intent.getStringExtra("body");
+            if (title != null && body != null) {
+                // Guardar la notificación si viene de los extras (caso background)
+                saveNotificationLocally(title, body);
+                Log.d("MainActivity", "Notificación recibida via Intent: " + title);
+            }
+        }
+    }
+
+    private void saveNotificationLocally(String title, String body) {
+        try {
+            android.content.SharedPreferences prefs = getSharedPreferences("offpeak_alerts", Context.MODE_PRIVATE);
+            String existingAlerts = prefs.getString("alerts_list", "[]");
+            org.json.JSONArray alertsArray = new org.json.JSONArray(existingAlerts);
+            
+            // Evitar duplicados simples si el timestamp es muy cercano (opcional)
+            org.json.JSONObject newAlert = new org.json.JSONObject();
+            newAlert.put("title", title);
+            newAlert.put("body", body);
+            newAlert.put("timestamp", System.currentTimeMillis());
+            
+            alertsArray.put(newAlert);
+            prefs.edit().putString("alerts_list", alertsArray.toString()).apply();
+        } catch (Exception e) {
+            Log.e("MainActivity", "Error saving notification from intent", e);
+        }
+    }
+
+    @Override
+    protected void onNewIntent(@androidx.annotation.NonNull Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleNotificationIntent(intent);
     }
 
     private void createNotificationChannel() {
@@ -190,6 +249,19 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private String getCategoryByName(String name) {
+        if (name == null) return null;
+        String lowercaseName = name.toLowerCase();
+        if (lowercaseName.contains("jardín plaza") || lowercaseName.contains("chipichape") || lowercaseName.contains("centro comercial")) {
+            return "centro_comercial";
+        } else if (lowercaseName.contains("perro") || lowercaseName.contains("amor") || lowercaseName.contains("parque")) {
+            return "parque";
+        } else if (lowercaseName.contains("bulevar") || lowercaseName.contains("río") || lowercaseName.contains("rio") || lowercaseName.contains("público") || lowercaseName.contains("publico")) {
+            return "espacio_publico";
+        }
+        return null;
+    }
+
     private void fetchSmartRoute(double destLat, double destLng, String name) {
         executor.execute(() -> {
             try {
@@ -205,8 +277,14 @@ public class MainActivity extends AppCompatActivity {
                 connection.setConnectTimeout(60000);
                 connection.setReadTimeout(60000);
                 
-                // Usar ubicación real, aumentamos el radio a 50000 (50km) por si el GPS está lejos de Cali
-                String jsonInputString = "{\"latitud\": " + currentLat + ", \"longitud\": " + currentLng + ", \"radio_metros\": 50000, \"limite\": 1}";
+                String escapedName = name != null ? name.replace("\"", "\\\"") : "";
+                String category = getCategoryByName(name);
+                String jsonInputString;
+                if (category != null) {
+                    jsonInputString = "{\"latitud\": " + currentLat + ", \"longitud\": " + currentLng + ", \"categoria_objetivo\": \"" + category + "\", \"radio_metros\": 50000, \"limite\": 1, \"nombre_destino\": \"" + escapedName + "\"}";
+                } else {
+                    jsonInputString = "{\"latitud\": " + currentLat + ", \"longitud\": " + currentLng + ", \"radio_metros\": 50000, \"limite\": 1, \"nombre_destino\": \"" + escapedName + "\"}";
+                }
                 
                 try(java.io.OutputStream os = connection.getOutputStream()) {
                     byte[] input = jsonInputString.getBytes("utf-8");
@@ -229,6 +307,7 @@ public class MainActivity extends AppCompatActivity {
                     String weather = alt.optString("clima_actual", "Despejado");
                     String incidents = alt.optString("incidencias_viales", "Ninguna");
                     String reason = alt.optString("razon_desvio", "Ruta recomendada.");
+                    String recommendedName = alt.optString("nombre", name);
                     
                     JSONObject geojson = alt.optJSONObject("geometria_ruta");
                     String geojsonStr = geojson != null ? geojson.toString().replace("'", "\\'").replace("\n", "") : "{}";
@@ -241,7 +320,7 @@ public class MainActivity extends AppCompatActivity {
                         TextView routeReason = findViewById(R.id.routeReason);
                         View routeCard = findViewById(R.id.routeDetailsCard);
                         
-                        routeTitle.setText("Ruta hacia " + name);
+                        routeTitle.setText("Ruta hacia " + recommendedName);
                         routeTime.setText(time + " min");
                         routeWeather.setText(weather);
                         routeIncidents.setText(incidents);
@@ -336,5 +415,159 @@ public class MainActivity extends AppCompatActivity {
                 handler.post(() -> mapWebView.evaluateJavascript("javascript:showOfflineMode('" + errorMsg + "');", null));
             }
         });
+    }
+
+    private void startAlertsPolling() {
+        handler.post(new Runnable() {
+            @Override
+            public void run() {
+                fetchAlertsFromBackend();
+                handler.postDelayed(this, 10000); // Polling every 10 seconds
+            }
+        });
+    }
+
+    private void fetchAlertsFromBackend() {
+        executor.execute(() -> {
+            try {
+                String baseUrl = getString(R.string.api_heatmap_url);
+                String alertsUrl = baseUrl.replace("heatmap", "alerts/");
+                
+                URL url = new URL(alertsUrl);
+                HttpURLConnection connection = (HttpURLConnection) url.openConnection();
+                connection.setRequestMethod("GET");
+                connection.setConnectTimeout(15000);
+                connection.setReadTimeout(15000);
+                
+                int responseCode = connection.getResponseCode();
+                if (responseCode == HttpURLConnection.HTTP_OK) {
+                    BufferedReader reader = new BufferedReader(new InputStreamReader(connection.getInputStream(), "utf-8"));
+                    StringBuilder response = new StringBuilder();
+                    String line;
+                    while ((line = reader.readLine()) != null) {
+                        response.append(line.trim());
+                    }
+                    reader.close();
+                    
+                    String jsonResponse = response.toString();
+                    JSONArray jsonArray = new JSONArray(jsonResponse);
+                    
+                    android.content.SharedPreferences prefs = getSharedPreferences("offpeak_alerts", Context.MODE_PRIVATE);
+                    String notifiedIdsStr = prefs.getString("notified_alert_ids", "[]");
+                    JSONArray notifiedIds = new JSONArray(notifiedIdsStr);
+                    
+                    java.util.Set<String> notifiedSet = new java.util.HashSet<>();
+                    for (int i = 0; i < notifiedIds.length(); i++) {
+                        notifiedSet.add(notifiedIds.getString(i));
+                    }
+                    
+                    boolean newAlertAdded = false;
+                    String localAlertsStr = prefs.getString("alerts_list", "[]");
+                    JSONArray localAlerts = new JSONArray(localAlertsStr);
+                    // Use a set of local IDs to avoid duplicating in the list
+                    java.util.Set<String> localIds = new java.util.HashSet<>();
+                    for (int i = 0; i < localAlerts.length(); i++) {
+                        JSONObject obj = localAlerts.getJSONObject(i);
+                        if (obj.has("id")) {
+                            localIds.add(obj.getString("id"));
+                        }
+                    }
+                    
+                    // Process alerts from oldest to newest
+                    for (int i = jsonArray.length() - 1; i >= 0; i--) {
+                        JSONObject alertObj = jsonArray.getJSONObject(i);
+                        String alertId = alertObj.getString("id");
+                        String msg = alertObj.getString("mensaje");
+                        String venueName = alertObj.optString("venue_nombre", "OFFPEAK");
+                        String tipo = alertObj.optString("tipo", "alerta");
+                        
+                        // If not notified yet
+                        if (!notifiedSet.contains(alertId)) {
+                            String title = "Alerta Crítica: " + venueName;
+                            if (tipo.contains("normalizado")) {
+                                title = "Normalización: " + venueName;
+                            }
+                            showLocalNotification(title, msg);
+                            
+                            notifiedIds.put(alertId);
+                            notifiedSet.add(alertId);
+                            newAlertAdded = true;
+                        }
+                        
+                        // If not in local alerts list, add it
+                        if (!localIds.contains(alertId)) {
+                            JSONObject newAlert = new JSONObject();
+                            newAlert.put("id", alertId);
+                            newAlert.put("title", tipo.contains("normalizado") ? "Normalización: " + venueName : "Alerta Crítica: " + venueName);
+                            newAlert.put("body", msg);
+                            
+                            String dateStr = alertObj.optString("generada_en");
+                            long ts = System.currentTimeMillis();
+                            try {
+                                if (dateStr != null && !dateStr.isEmpty()) {
+                                    // Remove 'Z' or replace timezone offset
+                                    dateStr = dateStr.replace("Z", "+0000");
+                                    // Clean subseconds if there are more than 3
+                                    int dotIndex = dateStr.indexOf('.');
+                                    int plusIndex = dateStr.indexOf('+');
+                                    if (dotIndex != -1 && plusIndex != -1) {
+                                        String ms = dateStr.substring(dotIndex + 1, plusIndex);
+                                        if (ms.length() > 3) {
+                                            dateStr = dateStr.substring(0, dotIndex + 4) + dateStr.substring(plusIndex);
+                                        }
+                                    }
+                                    java.text.SimpleDateFormat sdf = new java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", java.util.Locale.US);
+                                    java.util.Date d = sdf.parse(dateStr);
+                                    if (d != null) ts = d.getTime();
+                                }
+                            } catch (Exception e) {
+                                Log.e("MainActivity", "Error parsing date: " + dateStr, e);
+                            }
+                            newAlert.put("timestamp", ts);
+                            localAlerts.put(newAlert);
+                            localIds.add(alertId);
+                            newAlertAdded = true;
+                        }
+                    }
+                    
+                    if (newAlertAdded) {
+                        prefs.edit()
+                            .putString("notified_alert_ids", notifiedIds.toString())
+                            .putString("alerts_list", localAlerts.toString())
+                            .apply();
+                    }
+                }
+            } catch (Exception e) {
+                Log.e("MainActivity", "Error fetching alerts", e);
+            }
+        });
+    }
+
+    private void showLocalNotification(String title, String body) {
+        Uri defaultSoundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION);
+        NotificationCompat.Builder notificationBuilder =
+                new NotificationCompat.Builder(this, MyFirebaseMessagingService.CHANNEL_ID)
+                        .setSmallIcon(R.drawable.ic_launcher_foreground)
+                        .setContentTitle(title)
+                        .setContentText(body)
+                        .setStyle(new NotificationCompat.BigTextStyle().bigText(body))
+                        .setAutoCancel(true)
+                        .setSound(defaultSoundUri)
+                        .setPriority(NotificationCompat.PRIORITY_HIGH);
+
+        NotificationManager notificationManager =
+                (NotificationManager) getSystemService(Context.NOTIFICATION_SERVICE);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            NotificationChannel channel = new NotificationChannel(
+                    MyFirebaseMessagingService.CHANNEL_ID,
+                    "Incidentes Críticos",
+                    NotificationManager.IMPORTANCE_HIGH);
+            channel.setDescription("Notificaciones sobre cierres de vías y emergencias");
+            notificationManager.createNotificationChannel(channel);
+        }
+
+        int notificationId = (title + body).hashCode();
+        notificationManager.notify(notificationId, notificationBuilder.build());
     }
 }
